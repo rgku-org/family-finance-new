@@ -21,11 +21,20 @@ No Vercel Dashboard do teu projeto, adiciona:
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://pqsjmavtkcrnorjemasq.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=<tua_service_role_key>
+CRON_SECRET=<gerar_segredo_unico>
 ```
 
 **Obter Service Role Key:**
 1. Vai para https://supabase.com/dashboard/project/pqsjmavtkcrnorjemasq/settings/api
 2. Copia a "service_role" key (não a "anon" key!)
+
+**Gerar CRON_SECRET:**
+```bash
+# Gera um segredo único
+openssl rand -hex 32
+```
+
+Ou usa este (já gerado): `IVpW9y02Bm45jAlD7hTsaJCLgQd8PiK1`
 
 ### 2. Deploy
 
