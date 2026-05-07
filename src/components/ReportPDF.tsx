@@ -276,26 +276,10 @@ function PieChart({ data }: { data: { category: string; amount: number }[] }) {
   ));
 
   return (
-    <View style={{ flexDirection: "row", alignItems: "center" }}>
-      <Svg width={size} height={size}>
+    <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 10 }}>
+      <Svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
         {slices}
         <Circle cx={center} cy={center} r={25} fill="#ffffff" />
-        <Text
-          x={center}
-          y={center - 5}
-          textAnchor="middle"
-          style={{ fontSize: 10, fontWeight: "bold", fill: "#0f172a" }}
-        >
-          Total
-        </Text>
-        <Text
-          x={center}
-          y={center + 8}
-          textAnchor="middle"
-          style={{ fontSize: 8, fill: "#64748b" }}
-        >
-          {formatCurrency(total)}
-        </Text>
       </Svg>
       <View style={{ marginLeft: 10, flex: 1 }}>{legendItems}</View>
     </View>
@@ -314,7 +298,7 @@ function BarChart({ income, expenses }: { income: number; expenses: number }) {
 
   return (
     <View style={{ marginTop: 10 }}>
-      <Svg width={chartWidth} height={chartHeight + 30}>
+      <Svg viewBox={`0 0 ${chartWidth} ${chartHeight + 30}`} width={chartWidth} height={chartHeight + 30}>
         <Line
           x1={0}
           y1={chartHeight}
@@ -339,23 +323,11 @@ function BarChart({ income, expenses }: { income: number; expenses: number }) {
           fill="#ef4444"
           rx={3}
         />
-        <Text
-          x={barWidth / 2}
-          y={chartHeight + 15}
-          textAnchor="middle"
-          style={{ fontSize: 8, fill: "#64748b" }}
-        >
-          Receitas
-        </Text>
-        <Text
-          x={barWidth + gap + barWidth / 2}
-          y={chartHeight + 15}
-          textAnchor="middle"
-          style={{ fontSize: 8, fill: "#64748b" }}
-        >
-          Despesas
-        </Text>
       </Svg>
+      <View style={{ flexDirection: "row", justifyContent: "space-around", marginTop: 5 }}>
+        <Text style={{ fontSize: 8, color: "#64748b" }}>Receitas</Text>
+        <Text style={{ fontSize: 8, color: "#64748b" }}>Despesas</Text>
+      </View>
     </View>
   );
 }
