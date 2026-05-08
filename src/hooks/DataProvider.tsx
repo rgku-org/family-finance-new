@@ -66,6 +66,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [loading, setLoading] = useState(true);
   const lastFetchUserId = useRef<string | null>(null);
+  const lastFetchFamilyId = useRef<string | null>(null);
 
   const fetchData = async () => {
     if (!user) return;
@@ -162,6 +163,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (budgetsData.data) {
         setBudgetsRaw(budgetsData.data);
       }
+      
+      // Update last fetch refs
+      lastFetchUserId.current = user.id;
+      lastFetchFamilyId.current = familyId;
     } catch (error) {
       console.error('[DataProvider] Error fetching data:', error);
     } finally {
@@ -180,17 +185,35 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setBudgetsRaw([]);
       setLoading(false);
       lastFetchUserId.current = null;
+      lastFetchFamilyId.current = null;
       return;
     }
 
-    if (lastFetchUserId.current === user.id) {
-      console.log('[DataProvider] Already fetched for this user, skipping');
-      return;
-    }
-    lastFetchUserId.current = user.id;
-
-    console.log('[DataProvider] Calling fetchData...');
-    fetchData();
+    // Check if we need to refetch (user changed OR family changed)
+    const needsRefetch = async () => {
+      if (lastFetchUserId.current !== user.id) return true;
+      
+      // Check if family_id changed
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('family_id')
+        .eq('id', user.id)
+        .single();
+      
+      const currentFamilyId = profile?.family_id || null;
+      if (lastFetchFamilyId.current !== currentFamilyId) return true;
+      
+      return false;
+    };
+    
+    needsRefetch().then(shouldFetch => {
+      if (!shouldFetch) {
+        console.log('[DataProvider] Already fetched for this user+family, skipping');
+        return;
+      }
+      console.log('[DataProvider] Calling fetchData...');
+      fetchData();
+    });
   }, [user, isOnline]);
 
   const budgets = useMemo(() => {
