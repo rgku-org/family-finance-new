@@ -70,15 +70,21 @@ export async function parseCSV(file: File, mapping: CSVMapping): Promise<ParsedT
       throw new Error("CSV vazio ou inválido - precisa de pelo menos 1 linha de dados");
     }
 
-    // Detect FamFlow History CSV format - find the TRANSACTIONS header line
+    // Detect FamFlow History CSV format - first line is the header
     let headerLineIdx = 0;
     let isFamFlowFormat = false;
     
-    for (let i = 0; i < lines.length; i++) {
-      if (lines[i].includes("=== TRANSACTIONS ===")) {
-        headerLineIdx = i + 1;
-        isFamFlowFormat = true;
-        break;
+    if (lines[0].includes("id,user_id,family_id,data,descricao")) {
+      headerLineIdx = 0;
+      isFamFlowFormat = true;
+    } else {
+      // Fallback: look for TRANSACTIONS marker
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes("=== TRANSACTIONS ===")) {
+          headerLineIdx = i + 1;
+          isFamFlowFormat = true;
+          break;
+        }
       }
     }
     
@@ -102,8 +108,8 @@ export async function parseCSV(file: File, mapping: CSVMapping): Promise<ParsedT
     const startIdx = headerLineIdx + 1; // Data starts after header
 
     for (let i = startIdx; i < lines.length; i++) {
-      // Stop at next section or total line
-      if (lines[i].startsWith("===") || lines[i].startsWith("Total:")) {
+      // Stop at empty line (section separator) or next section header
+      if (lines[i].trim() === "" || lines[i].startsWith("===")) {
         break;
       }
       

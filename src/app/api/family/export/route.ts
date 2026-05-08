@@ -99,16 +99,62 @@ export async function POST(request: NextRequest) {
     // Generate CSV
     const csvRows: string[] = [];
 
-    // Header
-    csvRows.push("=== FAMFLOW HISTORY EXPORT ===");
-    csvRows.push(`Export Date: ${now.toISOString()}`);
-    csvRows.push(`Exported By: ${user.id}`);
-    if (memberId) {
-      csvRows.push(`Type: Family Export (member removal)`);
-      csvRows.push(`Family ID: ${familyId || "N/A"}`);
-    } else {
-      csvRows.push(`User ID: ${user.id}`);
-      csvRows.push(`Family ID: ${familyId || "N/A"}`);
+    // Transactions
+    csvRows.push("id,user_id,family_id,data,descricao,categoria,tipo,valor,criado_em");
+    
+    if (transactions && transactions.length > 0) {
+      for (const t of transactions) {
+        csvRows.push(
+          `"${t.id}",` +
+          `"${t.user_id}",` +
+          `"${t.family_id || ""}",` +
+          `"${t.date}",` +
+          `"${(t.description || "").replace(/"/g, '""')}",` +
+          `"${(t.category || "Outros").replace(/"/g, '""')}",` +
+          `"${t.type}",` +
+          `"${t.amount}",` +
+          `"${t.created_at || ""}"`
+        );
+      }
+    }
+
+    // Goals
+    if (includeGoals && goalsData.length > 0) {
+      csvRows.push("");
+      csvRows.push("id,user_id,family_id,nome,current_amount,target_amount,deadline,goal_type,icon,criado_em");
+      
+      for (const g of goalsData) {
+        csvRows.push(
+          `"${g.id}",` +
+          `"${g.user_id}",` +
+          `"${g.family_id || ""}",` +
+          `"${(g.name || "").replace(/"/g, '""')}",` +
+          `"${g.current_amount}",` +
+          `"${g.target_amount}",` +
+          `"${g.deadline || ""}",` +
+          `"${g.goal_type || "savings"}",` +
+          `"${g.icon || ""}",` +
+          `"${g.created_at || ""}"`
+        );
+      }
+    }
+
+    // Budgets
+    if (includeBudgets && budgetsData.length > 0) {
+      csvRows.push("");
+      csvRows.push("id,user_id,family_id,categoria,limit_amount,month,criado_em");
+      
+      for (const b of budgetsData) {
+        csvRows.push(
+          `"${b.id}",` +
+          `"${b.user_id}",` +
+          `"${b.family_id || ""}",` +
+          `"${(b.category || "").replace(/"/g, '""')}",` +
+          `"${b.limit_amount}",` +
+          `"${b.month}",` +
+          `"${b.created_at || ""}"`
+        );
+      }
     }
     csvRows.push(`Period: ${startDateStr} to ${endDateStr} (${months} months)`);
     csvRows.push("");
