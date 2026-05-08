@@ -110,6 +110,18 @@ export default function ImportPage() {
               ? "O sistema tentará detetar automaticamente as colunas"
               : `Formato otimizado para ${selectedBank === "millennium" ? "Millennium bcp" : selectedBank}`}
           </p>
+          {selectedBank === "famflow" && (
+            <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Icon name="info" size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-500">
+                  <strong>Nota:</strong> Todas as transações importadas ficarão associadas apenas à tua conta. 
+                  Outros membros da família <strong>não</strong> terão acesso a estas transações, mesmo que pertençam 
+                  a uma família no ficheiro original.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* File Upload */}
