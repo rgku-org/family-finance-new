@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       supabase
         .from("transactions_decrypted")
         .select("id, description, amount, type, category, date")
+        .eq("user_id", user.id)
         .gte("date", startDate)
         .lt("date", endDate)
         .order("date", { ascending: false }),
@@ -50,6 +51,7 @@ export async function GET(request: NextRequest) {
       supabase
         .from("transactions_decrypted")
         .select("amount, type")
+        .eq("user_id", user.id)
         .gte("date", prevStartDate)
         .lt("date", prevEndDate),
     ]);

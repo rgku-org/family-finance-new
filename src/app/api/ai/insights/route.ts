@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 
     const [profileResult, transResult, budgetsResult, goalsResult] = await Promise.all([
       supabase.from("profiles").select("family_id, billing_cycle_day").eq("id", user.id).single(),
-      supabase.from("transactions_decrypted").select("amount, type, category, date"),
+      supabase.from("transactions_decrypted").select("amount, type, category, date").eq("user_id", user.id),
       supabase.from("budgets").select("category, limit_amount").eq("user_id", user.id),
       supabase.from("goals_decrypted").select("name, target_amount, current_amount, deadline, goal_type, created_at").eq("user_id", user.id),
     ]);
