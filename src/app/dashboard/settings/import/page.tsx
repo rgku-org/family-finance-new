@@ -97,6 +97,7 @@ export default function ImportPage() {
             }}
             className="w-full bg-surface-container-low border-none rounded-2xl px-5 py-4 text-on-surface focus:ring-2 focus:ring-primary/20 transition-all"
           >
+            <option value="famflow">FamFlow History (export CSV)</option>
             <option value="generic">CSV Genérico (qualquer banco)</option>
             <option value="revolut">Revolut</option>
             <option value="n26">N26</option>
