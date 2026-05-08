@@ -77,15 +77,6 @@ export async function parseCSV(file: File, mapping: CSVMapping): Promise<ParsedT
     if (lines[0].includes("id,user_id,family_id,data,descricao")) {
       headerLineIdx = 0;
       isFamFlowFormat = true;
-    } else {
-      // Fallback: look for TRANSACTIONS marker
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes("=== TRANSACTIONS ===")) {
-          headerLineIdx = i + 1;
-          isFamFlowFormat = true;
-          break;
-        }
-      }
     }
     
     const headers = lines[headerLineIdx].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
@@ -108,8 +99,8 @@ export async function parseCSV(file: File, mapping: CSVMapping): Promise<ParsedT
     const startIdx = headerLineIdx + 1; // Data starts after header
 
     for (let i = startIdx; i < lines.length; i++) {
-      // Stop at empty line (section separator) or next section header
-      if (lines[i].trim() === "" || lines[i].startsWith("===")) {
+      // Stop at empty line
+      if (lines[i].trim() === "") {
         break;
       }
       
