@@ -117,10 +117,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const [profileResult, transResult] = await Promise.all([
-      supabase.from("profiles").select("family_id, billing_cycle_day").eq("id", user.id).single(),
-      supabase.from("transactions_decrypted").select("description, amount, type, category, date").order("date", { ascending: false }),
-    ]);
+    const profileResult = await supabase.from("profiles").select("family_id, billing_cycle_day").eq("id", user.id).single();
+    const familyId = profileResult.data?.family_id;
+    const txFilter = familyId
+      ? `user_id.eq.${user.id},family_id.eq.${familyId}`
+      : `user_id.eq.${user.id}`;
+
+    const transResult = await supabase.from("transactions_decrypted").select("description, amount, type, category, date").or(txFilter).order("date", { ascending: false });
 
     if (!profileResult.data) {
       return NextResponse.json({ error: "Perfil não encontrado" }, { status: 404 });
@@ -128,6 +131,11 @@ export async function GET(request: NextRequest) {
 
     const billingDay = profileResult.data.billing_cycle_day || 1;
     const transactions = transResult.data || [];
+
+    // No transactions = no forecast
+    if (transactions.length === 0) {
+      return NextResponse.json({ forecasts: [], summary: { totalPredicted: 0, confidenceLow: 0, confidenceHigh: 0, narrative: "Adiciona transações para veres previsões." }, cached: false });
+    }
 
     const [targetYear, targetMonth] = monthParam.split("-").map(Number);
     const sixMonthsAgo = new Date(targetYear, targetMonth - 1, 1);

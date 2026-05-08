@@ -66,6 +66,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [loading, setLoading] = useState(true);
   const lastFetchUserId = useRef<string | null>(null);
+  const lastFetchFamilyId = useRef<string | null>(null);
 
   const fetchData = async () => {
     if (!user) return;
@@ -73,8 +74,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     
     try {
-      console.log('[DataProvider] Fetching data for user:', user.id);
-      
       // Fetch user's family_id
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -87,26 +86,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
       
       const familyId = profile?.family_id;
-      console.log('[DataProvider] Profile family_id:', familyId);
       
-      // Fetch data filtered by family_id (or user_id if no family)
-      const filterId = familyId || user.id;
-      const filterType = familyId ? 'family_id' : 'user_id';
-      console.log('[DataProvider] Fetching with filter:', filterType, '=', filterId);
+      // Build filter: user_id = current user OR family_id = current family
+      let transactionQuery = supabase
+        .from('transactions_decrypted')
+        .select('*');
+      
+      if (familyId) {
+        transactionQuery = transactionQuery.or(`user_id.eq.${user.id},family_id.eq.${familyId}`);
+      } else {
+        transactionQuery = transactionQuery.eq('user_id', user.id);
+      }
+      
+      let goalsQuery = supabase
+        .from('goals_decrypted')
+        .select('*');
+      
+      if (familyId) {
+        goalsQuery = goalsQuery.or(`user_id.eq.${user.id},family_id.eq.${familyId}`);
+      } else {
+        goalsQuery = goalsQuery.eq('user_id', user.id);
+      }
       
       const [transactionsData, goalsData, budgetsData] = await Promise.all([
-        supabase
-          .from('transactions_decrypted')
-          .select('*')
-          .eq('family_id', filterId)
-          .order('date', { ascending: false }),
-        
-        supabase
-          .from('goals_decrypted')
-          .select('*')
-          .eq('family_id', filterId)
-          .order('created_at', { ascending: false }),
-        
+        transactionQuery.order('date', { ascending: false }),
+        goalsQuery.order('created_at', { ascending: false }),
         supabase
           .from('budgets')
           .select('*')
@@ -116,8 +120,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
       
       if (transactionsData.error) {
         console.error('[DataProvider] Error fetching transactions:', transactionsData.error);
-      } else {
-        console.log('[DataProvider] Fetched', transactionsData.data?.length, 'transactions');
       }
       
       if (transactionsData.data) {
@@ -154,6 +156,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (budgetsData.data) {
         setBudgetsRaw(budgetsData.data);
       }
+      
+      // Update last fetch refs
+      lastFetchUserId.current = user.id;
+      lastFetchFamilyId.current = familyId;
     } catch (error) {
       console.error('[DataProvider] Error fetching data:', error);
     } finally {
@@ -162,27 +168,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    console.log('[DataProvider useEffect] user:', user?.id);
-    console.log('[DataProvider useEffect] isOnline:', isOnline);
-    
     if (!user) {
-      console.log('[DataProvider] No user, clearing data');
       setTransactions([]);
       setGoals([]);
       setBudgetsRaw([]);
       setLoading(false);
       lastFetchUserId.current = null;
+      lastFetchFamilyId.current = null;
       return;
     }
 
-    if (lastFetchUserId.current === user.id) {
-      console.log('[DataProvider] Already fetched for this user, skipping');
-      return;
-    }
-    lastFetchUserId.current = user.id;
-
-    console.log('[DataProvider] Calling fetchData...');
-    fetchData();
+    // Check if we need to refetch (user changed OR family changed)
+    const needsRefetch = async () => {
+      if (lastFetchUserId.current !== user.id) return true;
+      
+      // Check if family_id changed
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('family_id')
+        .eq('id', user.id)
+        .single();
+      
+      const currentFamilyId = profile?.family_id || null;
+      if (lastFetchFamilyId.current !== currentFamilyId) return true;
+      
+      return false;
+    };
+    
+    needsRefetch().then(shouldFetch => {
+      if (!shouldFetch) return;
+      fetchData();
+    });
   }, [user, isOnline]);
 
   const budgets = useMemo(() => {

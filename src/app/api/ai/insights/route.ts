@@ -64,11 +64,16 @@ export async function GET(request: NextRequest) {
         .eq("type", "anomalies");
     }
 
-    const [profileResult, transResult, budgetsResult, goalsResult] = await Promise.all([
-      supabase.from("profiles").select("family_id, billing_cycle_day").eq("id", user.id).single(),
-      supabase.from("transactions_decrypted").select("amount, type, category, date"),
+    const profileResult = await supabase.from("profiles").select("family_id, billing_cycle_day").eq("id", user.id).single();
+    const familyId = profileResult.data?.family_id;
+    const txFilter = familyId
+      ? `user_id.eq.${user.id},family_id.eq.${familyId}`
+      : `user_id.eq.${user.id}`;
+
+    const [transResult, budgetsResult, goalsResult] = await Promise.all([
+      supabase.from("transactions_decrypted").select("amount, type, category, date").or(txFilter),
       supabase.from("budgets").select("category, limit_amount").eq("user_id", user.id),
-      supabase.from("goals_decrypted").select("name, target_amount, current_amount, deadline, goal_type, created_at").eq("user_id", user.id),
+      supabase.from("goals_decrypted").select("name, target_amount, current_amount, deadline, goal_type, created_at").or(txFilter),
     ]);
 
     if (profileResult.error) {
@@ -109,6 +114,12 @@ export async function GET(request: NextRequest) {
     }
 
     const monthTransactions = transResult.data?.filter(t => isInMonth(t.date)) || [];
+
+    // No transactions = no insights
+    if (monthTransactions.length === 0) {
+      return NextResponse.json({ insights: [], summary: { month: monthParam, totalInsights: 0, narrative: "Adiciona transações para veres insights." }, cached: false });
+    }
+
     const income = monthTransactions.filter(t => t.type === "income").reduce((s, t) => s + Number(t.amount), 0);
 
     const investmentExpenses = monthTransactions

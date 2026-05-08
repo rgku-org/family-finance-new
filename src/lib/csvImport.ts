@@ -21,6 +21,13 @@ export const bankPresets: Record<string, CSVMapping> = {
     descriptionColumn: "description",
     amountColumn: "amount",
   },
+  famflow: {
+    dateColumn: "Data",
+    descriptionColumn: "Descrição",
+    amountColumn: "Valor",
+    categoryColumn: "Categoria",
+    typeColumn: "Tipo",
+  },
   revolut: {
     dateColumn: "data",
     descriptionColumn: "descrição",
@@ -63,7 +70,19 @@ export async function parseCSV(file: File, mapping: CSVMapping): Promise<ParsedT
       throw new Error("CSV vazio ou inválido - precisa de pelo menos 1 linha de dados");
     }
 
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
+    // Detect FamFlow History CSV format - find the TRANSAÇÕES header line
+    let headerLineIdx = 0;
+    let isFamFlowFormat = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes("=== TRANSAÇÕES ===")) {
+        headerLineIdx = i + 1; // Next line is the header
+        isFamFlowFormat = true;
+        break;
+      }
+    }
+    
+    const headers = lines[headerLineIdx].split(",").map(h => h.trim().toLowerCase().replace(/"/g, ""));
     
     const dateIdx = findColumnIndex(headers, mapping.dateColumn);
     const descIdx = findColumnIndex(headers, mapping.descriptionColumn);
@@ -80,8 +99,14 @@ export async function parseCSV(file: File, mapping: CSVMapping): Promise<ParsedT
     }
 
     const transactions: ParsedTransaction[] = [];
+    const startIdx = headerLineIdx + 1; // Data starts after header
 
-    for (let i = 1; i < lines.length; i++) {
+    for (let i = startIdx; i < lines.length; i++) {
+      // Stop at next section or total line
+      if (lines[i].startsWith("===") || lines[i].startsWith("Total:")) {
+        break;
+      }
+      
       try {
         const row = parseCSVLine(lines[i], headers.length);
         
