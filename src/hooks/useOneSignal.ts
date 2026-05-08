@@ -42,7 +42,7 @@ export function useOneSignal() {
             .select('onesignal_player_id, subscription_state')
             .eq('user_id', user.id)
             .eq('subscription_state', 'active')
-            .single();
+            .maybeSingle();
 
           if (dbError && dbError.code !== 'PGRST116') {
             console.error('Error fetching subscription from DB:', dbError);
