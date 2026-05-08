@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
     
     if (transactions && transactions.length > 0) {
       for (const t of transactions) {
+        const signedAmount = t.type === "expense" ? -Math.abs(t.amount) : Math.abs(t.amount);
         csvRows.push(
           `"${t.id}",` +
           `"${t.user_id}",` +
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
           `"${(t.description || "").replace(/"/g, '""')}",` +
           `"${(t.category || "Outros").replace(/"/g, '""')}",` +
           `"${t.type}",` +
-          `"${t.amount}",` +
+          `"${signedAmount}",` +
           `"${t.created_at || ""}"`
         );
       }

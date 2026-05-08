@@ -121,8 +121,8 @@ export async function parseCSV(file: File, mapping: CSVMapping): Promise<ParsedT
           date,
           description: row[descIdx]?.replace(/"/g, "") || "Importado",
           amount: Math.abs(amount),
-          type: amount < 0 || (typeIdx !== -1 && row[typeIdx]?.toLowerCase().includes("débito")) 
-            ? "expense" 
+          type: amount < 0 || (typeIdx !== -1 && row[typeIdx]?.toLowerCase().includes("expense"))
+            ? "expense"
             : "income",
           category: categoryIdx !== -1 ? row[categoryIdx]?.replace(/"/g, "") : undefined,
         });
