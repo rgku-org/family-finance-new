@@ -38,6 +38,8 @@ export default function FamilyPage() {
   const [exporting, setExporting] = useState(false);
   const [exportFullHistory, setExportFullHistory] = useState(false);
   const [pendingAction, setPendingAction] = useState<"leave" | "delete" | null>(null);
+  const [showRemoveModal, setShowRemoveModal] = useState<{ memberId: string; memberName: string; memberEmail: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const handleCreateFamily = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -117,14 +119,48 @@ export default function FamilyPage() {
     }
   };
 
-  const handleRemove = async (memberId: string, memberName: string) => {
-    if (confirm(`Remover ${memberName} da família?`)) {
-      try {
-        await removeMember(memberId);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Erro desconhecido";
-        setMessage(errorMessage);
+  const handleRemove = async (memberId: string, memberName: string, memberEmail: string) => {
+    setShowRemoveModal({ memberId, memberName, memberEmail });
+  };
+
+  const handleConfirmRemove = async () => {
+    if (!showRemoveModal) return;
+    
+    setRemoving(true);
+    
+    try {
+      // Export member's data before removing
+      const res = await fetch("/api/family/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ months: 60, includeGoals: true, includeBudgets: true, memberId: showRemoveModal.memberId }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        const blob = new Blob([data.csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = data.filename;
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
+      
+      await removeMember(showRemoveModal.memberId);
+      setMessage(`${showRemoveModal.memberName} foi removido da família. CSV exportado.`);
+      setShowRemoveModal(null);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Erro desconhecido";
+      setMessage(errorMessage);
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -411,8 +447,8 @@ export default function FamilyPage() {
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-on-surface font-mono"
-                  placeholder="ABC123"
-                  maxLength={6}
+                  placeholder="Coloca o código da familia aqui"
+                  maxLength={16}
                 />
               </div>
               <button
@@ -590,7 +626,7 @@ export default function FamilyPage() {
 
                     {userRole === "owner" && member.role !== "owner" && (
                       <button
-                        onClick={() => handleRemove(member.id, member.name)}
+                        onClick={() => handleRemove(member.id, member.name, member.email)}
                         className="p-2 text-error hover:bg-error/20 rounded-lg"
                         aria-label="Remover membro"
                       >
@@ -824,6 +860,70 @@ export default function FamilyPage() {
                 className="flex-1 py-3 bg-error text-on-error rounded-full font-medium hover:brightness-110 transition-all"
               >
                 Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Remover Membro */}
+      {showRemoveModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface-container rounded-2xl p-6 max-w-md w-full space-y-4">
+            <div className="flex items-start gap-3">
+              <Icon name="warning" size={24} className="text-warning flex-shrink-0 mt-1" />
+              <div>
+                <h3 className="text-xl font-bold text-on-surface">Remover membro</h3>
+                <p className="text-sm text-on-surface-variant mt-1">
+                  {showRemoveModal.memberName} ({showRemoveModal.memberEmail})
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-warning/10 border border-warning/20 rounded-lg p-4 space-y-2">
+              <p className="text-sm text-on-surface">
+                <strong>Atenção:</strong> Este membro perderá acesso aos dados partilhados da família.
+              </p>
+              <ul className="text-xs text-on-surface-variant space-y-1">
+                <li>• O histórico pessoal do membro será mantido</li>
+                <li>• Transações criadas por outros membros deixarão de ser visíveis</li>
+              </ul>
+            </div>
+
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Icon name="download" size={16} className="text-primary" />
+                <p className="text-sm text-on-surface">
+                  <strong>CSV será exportado automaticamente</strong>
+                </p>
+              </div>
+              <p className="text-xs text-on-surface-variant">
+                O ficheiro contém todo o histórico do membro (5 anos). Podes enviar-lhe o ficheiro para que possa recuperar os dados.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowRemoveModal(null)}
+                className="flex-1 py-3 bg-surface-container text-on-surface rounded-full font-medium hover:bg-surface-container-high transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemove}
+                disabled={removing}
+                className="flex-1 py-3 bg-error text-on-error rounded-full font-medium hover:brightness-110 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {removing ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-on-error border-t-transparent rounded-full animate-spin" />
+                    A exportar...
+                  </>
+                ) : (
+                  'Remover'
+                )}
               </button>
             </div>
           </div>

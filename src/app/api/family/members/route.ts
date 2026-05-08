@@ -239,14 +239,60 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: "Apenas o owner pode remover membros" }, { status: 403 });
       }
 
-      const { error: deleteError } = await supabase
-        .from("family_members")
-        .delete()
-        .eq("id", memberId)
-        .eq("family_id", profile.family_id);
+      const adminSupabase = await createAdminSupabase();
 
-      if (deleteError) {
-        return NextResponse.json({ error: deleteError.message }, { status: 400 });
+      // Try to find in family_members first
+      const { data: memberData } = await supabase
+        .from("family_members")
+        .select("id, user_id")
+        .eq("id", memberId)
+        .eq("family_id", profile.family_id)
+        .single();
+
+      if (memberData) {
+        // Delete from family_members
+        const { error: deleteError } = await supabase
+          .from("family_members")
+          .delete()
+          .eq("id", memberId)
+          .eq("family_id", profile.family_id);
+
+        if (deleteError) {
+          return NextResponse.json({ error: deleteError.message }, { status: 400 });
+        }
+
+        // Update profile to remove family association
+        const { error: profileError } = await adminSupabase
+          .from("profiles")
+          .update({ family_id: null, role: null })
+          .eq("id", memberData.user_id);
+
+        if (profileError) {
+          console.error("Error updating profile after removal:", profileError);
+        }
+      } else {
+        // Member might be in profiles table only (joined via invite link)
+        // Check if memberId is a user_id in profiles
+        const { data: profileMember } = await adminSupabase
+          .from("profiles")
+          .select("id")
+          .eq("id", memberId)
+          .eq("family_id", profile.family_id)
+          .single();
+
+        if (profileMember) {
+          // Update profile to remove family association
+          const { error: profileError } = await adminSupabase
+            .from("profiles")
+            .update({ family_id: null, role: null })
+            .eq("id", memberId);
+
+          if (profileError) {
+            return NextResponse.json({ error: profileError.message }, { status: 400 });
+          }
+        } else {
+          return NextResponse.json({ error: "Membro não encontrado" }, { status: 404 });
+        }
       }
 
       return NextResponse.json({ message: "Membro removido" });

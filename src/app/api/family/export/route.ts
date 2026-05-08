@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { months = 12, includeGoals = true, includeBudgets = true } = body;
+    const { months = 12, includeGoals = true, includeBudgets = true, memberId } = body;
 
     // Get user's family_id
     const { data: profile } = await supabase
@@ -30,17 +30,24 @@ export async function POST(request: NextRequest) {
     const startDateStr = startDate.toISOString().split("T")[0];
     const endDateStr = now.toISOString().split("T")[0];
 
-    // Fetch transactions (user's own + family)
+    // If memberId is provided (owner removing member), export ALL family data
+    // Otherwise, export current user's own + family data
     let transactionQuery = supabase
       .from("transactions_decrypted")
       .select("*")
-      .eq("user_id", user.id)
       .gte("date", startDateStr)
       .lte("date", endDateStr)
       .order("date", { ascending: false });
 
-    if (familyId) {
-      transactionQuery = transactionQuery.or(`family_id.eq.${familyId}`);
+    if (memberId && familyId) {
+      // Export all family transactions for removed member
+      transactionQuery = transactionQuery.eq("family_id", familyId);
+    } else if (familyId) {
+      // Export user's own + family
+      transactionQuery = transactionQuery.or(`user_id.eq.${user.id},family_id.eq.${familyId}`);
+    } else {
+      // No family, just user's own
+      transactionQuery = transactionQuery.eq("user_id", user.id);
     }
 
     const { data: transactions, error: transError } = await transactionQuery;
@@ -55,11 +62,14 @@ export async function POST(request: NextRequest) {
       let goalsQuery = supabase
         .from("goals_decrypted")
         .select("*")
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (familyId) {
-        goalsQuery = goalsQuery.or(`family_id.eq.${familyId}`);
+      if (memberId && familyId) {
+        goalsQuery = goalsQuery.eq("family_id", familyId);
+      } else if (familyId) {
+        goalsQuery = goalsQuery.or(`user_id.eq.${user.id},family_id.eq.${familyId}`);
+      } else {
+        goalsQuery = goalsQuery.eq("user_id", user.id);
       }
 
       const { data: goals } = await goalsQuery;
@@ -69,14 +79,20 @@ export async function POST(request: NextRequest) {
     // Fetch budgets
     let budgetsData = [];
     if (includeBudgets) {
-      const { data: budgets } = await supabase
+      let budgetsQuery = supabase
         .from("budgets")
         .select("*")
-        .eq("user_id", user.id)
         .gte("month", startDateStr)
         .lte("month", endDateStr)
         .order("month", { ascending: false });
 
+      if (memberId && familyId) {
+        budgetsQuery = budgetsQuery.eq("family_id", familyId);
+      } else {
+        budgetsQuery = budgetsQuery.eq("user_id", user.id);
+      }
+
+      const { data: budgets } = await budgetsQuery;
       budgetsData = budgets || [];
     }
 
@@ -86,8 +102,14 @@ export async function POST(request: NextRequest) {
     // Header
     csvRows.push("=== FAMFLOW HISTORY EXPORT ===");
     csvRows.push(`Export Date: ${now.toISOString()}`);
-    csvRows.push(`User ID: ${user.id}`);
-    csvRows.push(`Family ID: ${familyId || "N/A"}`);
+    csvRows.push(`Exported By: ${user.id}`);
+    if (memberId) {
+      csvRows.push(`Type: Family Export (member removal)`);
+      csvRows.push(`Family ID: ${familyId || "N/A"}`);
+    } else {
+      csvRows.push(`User ID: ${user.id}`);
+      csvRows.push(`Family ID: ${familyId || "N/A"}`);
+    }
     csvRows.push(`Period: ${startDateStr} to ${endDateStr} (${months} months)`);
     csvRows.push("");
 
@@ -160,7 +182,8 @@ export async function POST(request: NextRequest) {
 
     // Create CSV blob
     const csvContent = csvRows.join("\n");
-    const filename = `famflow-historico-${user.id.slice(0, 8)}-${endDateStr}.csv`;
+    const userIdPart = memberId ? `familia-${familyId?.slice(0, 8) || "no-family"}` : user.id.slice(0, 8);
+    const filename = `famflow-historico-${userIdPart}-${endDateStr}.csv`;
 
     return NextResponse.json({
       success: true,
