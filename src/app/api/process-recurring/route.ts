@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
+if (!process.env.CRON_SECRET) {
+  console.error('CRITICAL: CRON_SECRET not configured — cron endpoints blocked');
+}
+
 export async function POST(req: Request) {
   const authHeader = req.headers.get('Authorization');
   const cronSecret = process.env.CRON_SECRET;
