@@ -699,6 +699,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   const addBudget = async (b: Omit<Budget, "id" | "spent">) => {
     if (!user) throw new Error("Must be logged in");
+    if (!b.category) throw new Error("Categoria é obrigatória");
 
     const currentMonth = new Date().toISOString().slice(0, 7) + '-01';
     
