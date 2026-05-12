@@ -58,7 +58,7 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user, supabase: authSupabase } = useAuth();
   const supabase = authSupabase!;
-  const { isOnline, saveOffline, fetchAndCache } = useOfflineSync();
+  const { isOnline, pendingCount, saveOffline, fetchAndCache } = useOfflineSync();
   
   const tempIdSeq = useRef(0);
   
@@ -183,6 +183,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     fetchData();
   }, [user, isOnline]);
+
+  const lastKnownPending = useRef(0);
+  useEffect(() => {
+    if (lastKnownPending.current > 0 && pendingCount === 0 && user) {
+      fetchData();
+    }
+    lastKnownPending.current = pendingCount;
+  }, [pendingCount]);
 
   const budgets = useMemo(() => {
     if (!budgetsRaw || budgetsRaw.length === 0) return [];
@@ -520,6 +528,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await saveOffline('transactions', updates, 'update', id);
       return;
     }
+
+    if (typeof id === 'string' && id.startsWith('temp_')) return;
     
     const { error } = await supabase
       .rpc('update_transaction', {

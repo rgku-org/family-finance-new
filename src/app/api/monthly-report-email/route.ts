@@ -38,7 +38,7 @@ export async function POST(req: Request) {
     }
 
     // Get emails from auth.users (accessible via service_role key)
-    const { data: authData } = await supabase.auth.admin.listUsers();
+    const { data: authData } = await supabase.auth.admin.listUsers({ page: 1, perPage: 10000 });
     const emailMap = new Map<string, string>();
     for (const u of authData?.users || []) {
       emailMap.set(u.id, u.email || '');
