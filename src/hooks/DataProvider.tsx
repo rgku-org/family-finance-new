@@ -60,6 +60,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const supabase = authSupabase!;
   const { isOnline, saveOffline, fetchAndCache } = useOfflineSync();
   
+  const tempIdSeq = useRef(0);
+  
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [budgetsRaw, setBudgetsRaw] = useState<any[]>([]);
@@ -67,6 +69,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const lastFetchUserId = useRef<string | null>(null);
   const lastFetchFamilyId = useRef<string | null>(null);
+  const transactionsRef = useRef(transactions);
+  transactionsRef.current = transactions;
 
   const fetchData = async () => {
     if (!user) return;
@@ -122,40 +126,39 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error('[DataProvider] Error fetching transactions:', transactionsData.error);
       }
       
-      if (transactionsData.data) {
-        const mapped = transactionsData.data.map(t => {
-          const parsedAmount = parseFloat(t.amount) || 0;
-          if (parsedAmount === 0 && t.amount !== '0') {
-            console.warn('[DataProvider] Transaction with invalid amount:', { id: t.id, rawAmount: t.amount, description: t.description });
-          }
-          return {
-            id: t.id,
-            description: t.description || 'Outros',
-            amount: parsedAmount,
-            type: t.type,
-            category: t.category || 'Outros',
-            date: t.date,
-          };
-        });
-        setTransactions(mapped);
-      }
+        setTransactions(transactionsData.data
+          ? transactionsData.data.map(t => {
+              const parsedAmount = parseFloat(t.amount) || 0;
+              if (parsedAmount === 0 && t.amount !== '0') {
+                console.warn('[DataProvider] Transaction with invalid amount:', { id: t.id, rawAmount: t.amount, description: t.description });
+              }
+              return {
+                id: t.id,
+                description: t.description || 'Outros',
+                amount: parsedAmount,
+                type: t.type,
+                category: t.category || 'Outros',
+                date: t.date,
+              };
+            })
+          : []
+        );
       
-      if (goalsData.data) {
-        setGoals(goalsData.data.map(g => ({
-          id: g.id,
-          name: g.name,
-          target_amount: parseFloat(g.target_amount),
-          current_amount: parseFloat(g.current_amount),
-          deadline: g.deadline,
-          icon: g.icon,
-          goal_type: g.goal_type,
-          created_at: g.created_at,
-        })));
-      }
+      setGoals(goalsData.data
+        ? goalsData.data.map(g => ({
+            id: g.id,
+            name: g.name,
+            target_amount: parseFloat(g.target_amount),
+            current_amount: parseFloat(g.current_amount),
+            deadline: g.deadline,
+            icon: g.icon,
+            goal_type: g.goal_type,
+            created_at: g.created_at,
+          }))
+        : []
+      );
       
-      if (budgetsData.data) {
-        setBudgetsRaw(budgetsData.data);
-      }
+      setBudgetsRaw(budgetsData.data || []);
       
       // Update last fetch refs
       lastFetchUserId.current = user.id;
@@ -205,7 +208,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addTransaction = async (t: Omit<Transaction, "id">) => {
     if (!user) throw new Error("Must be logged in");
 
-    const tempId = `temp_${Date.now()}`;
+    const tempId = `temp_${Date.now()}_${++tempIdSeq.current}`;
     const newTransaction = {
       id: tempId,
       description: t.description,
@@ -257,18 +260,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
           .single();
 
         if (insertedData) {
-          setTransactions(prev => 
-            prev.map(trans => 
-              trans.id === tempId ? {
+          setTransactions(prev => {
+            const idx = prev.findIndex(t => t.id === tempId);
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = {
                 id: insertedData.id,
                 description: insertedData.description || t.description,
                 amount: parseFloat(insertedData.amount) || t.amount,
                 type: insertedData.type,
                 category: insertedData.category,
                 date: insertedData.date,
-              } : trans
-            )
-          );
+              };
+              return updated;
+            }
+            return prev;
+          });
         }
 
         if (t.type === 'expense') {
@@ -277,7 +284,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Error adding transaction:', error);
-      setTransactions(prev => prev.filter(trans => trans.id !== tempId));
+      setTransactions(prev => {
+        const hasTempId = prev.some(trans => trans.id === tempId);
+        return hasTempId ? prev.filter(trans => trans.id !== tempId) : prev;
+      });
       throw error;
     }
   };
@@ -495,11 +505,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       .rpc('update_transaction', {
         p_id: id,
         p_user_id: user.id,
-        p_description: t.description,
-        p_amount: t.amount,
-        p_type: t.type,
-        p_category: t.category,
-        p_date: t.date,
+        p_description: t.description ?? transactionsRef.current.find(tx => tx.id === id)?.description,
+        p_amount: t.amount ?? transactionsRef.current.find(tx => tx.id === id)?.amount,
+        p_type: t.type ?? transactionsRef.current.find(tx => tx.id === id)?.type,
+        p_category: t.category ?? transactionsRef.current.find(tx => tx.id === id)?.category,
+        p_date: t.date ?? transactionsRef.current.find(tx => tx.id === id)?.date,
       });
 
     if (error) {
@@ -540,7 +550,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const addGoal = async (g: Omit<Goal, "id">) => {
     if (!user) throw new Error("Must be logged in");
 
-    const tempId = `temp_${Date.now()}`;
+    const tempId = `temp_${Date.now()}_${++tempIdSeq.current}`;
     const newGoal = {
       id: tempId,
       name: g.name,
@@ -704,7 +714,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const currentMonth = new Date().toISOString().slice(0, 7) + '-01';
     
     // Optimistic update
-    const tempId = `temp_${Date.now()}`;
+    const tempId = `temp_${Date.now()}_${++tempIdSeq.current}`;
     const newBudget = {
       id: tempId,
       user_id: user.id,

@@ -39,6 +39,10 @@ export async function POST(request: NextRequest) {
         .limit(1)
         .single();
 
+      if (cached.error) {
+        console.error("Cache query error for optimize:", cached.error);
+      }
+
       if (cached.data && cached.data.suggested_at) {
         const cacheAge = Date.now() - new Date(cached.data.suggested_at).getTime();
         if (cacheAge < CACHE_TTL_DAYS * 24 * 60 * 60 * 1000) {
@@ -121,7 +125,7 @@ export async function POST(request: NextRequest) {
       .gte("date", `${currentMonth}-01`)
       .lt("date", `${currentMonth}-32`);
 
-    const totalIncome = (incomeResult.data || []).reduce((s, t) => s + Number(t.amount), 0) || 1500;
+    const totalIncome = (incomeResult.data || []).reduce((s, t) => s + Number(t.amount), 0);
 
     const payload: AIBudgetOptimizePayload = {
       familyId: profileResult.data.family_id,
