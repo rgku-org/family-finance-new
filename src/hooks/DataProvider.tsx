@@ -51,6 +51,7 @@ interface DataContextType {
   deleteBudget: (id: string) => Promise<void>;
   
   loading: boolean;
+  fetchError: string | null;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -67,11 +68,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [budgetsRaw, setBudgetsRaw] = useState<any[]>([]);
   const [currentMonth, setCurrentMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const lastFetchUserId = useRef<string | null>(null);
   const lastFetchFamilyId = useRef<string | null>(null);
   const transactionsRef = useRef(transactions);
   transactionsRef.current = transactions;
   const mountedRef = useRef(true);
+  const alertsInProgress = useRef(new Set<string>());
 
   useEffect(() => {
     mountedRef.current = true;
@@ -82,6 +85,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     
     setLoading(true);
+    setFetchError(null);
     
     try {
       // Fetch user's family_id
@@ -173,6 +177,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       lastFetchFamilyId.current = familyId;
     } catch (error) {
       console.error('[DataProvider] Error fetching data:', error);
+      setFetchError(error instanceof Error ? error.message : 'Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
@@ -390,7 +395,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
     monthStart: string,
     monthEnd: string
   ) => {
-    if (percentage < threshold.value) {
+    const alertKey = `${user!.id}-${category}-${threshold.value}`;
+    if (alertsInProgress.current.has(alertKey)) return;
+    alertsInProgress.current.add(alertKey);
+
+    try {
+      if (percentage < threshold.value) {
       const resetThreshold = threshold.value - 10;
       if (percentage < resetThreshold) {
         await supabase.from('budget_alerts')
@@ -463,6 +473,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (upsertError) {
         console.error('[BudgetAlerts] Error upserting re-notify alert:', upsertError);
       }
+    }
+    } finally {
+      alertsInProgress.current.delete(alertKey);
     }
   };
 
@@ -869,8 +882,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     transactions, addTransaction, updateTransaction, deleteTransaction,
     goals, addGoal, updateGoal, deleteGoal, addGoalContribution,
     budgets: budgets || [], setCurrentBudgetMonth, addBudget, updateBudget, deleteBudget,
-    loading,
-  }), [transactions, goals, budgets, loading]);
+    loading, fetchError,
+  }), [transactions, goals, budgets, loading, fetchError]);
 
   return (
     <DataContext.Provider value={contextValue}>

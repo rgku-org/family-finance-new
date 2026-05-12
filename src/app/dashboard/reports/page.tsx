@@ -195,19 +195,19 @@ export default function ReportsPage() {
             <div className="bg-surface-container rounded-lg p-6">
               <p className="text-sm text-on-surface-variant mb-1">Receitas</p>
               <p className="text-2xl font-bold text-primary">
-                {formatCurrencyWithSymbol(reportData.income)}
+                {formatCurrencyWithSymbol(reportData.income ?? 0)}
               </p>
             </div>
             <div className="bg-surface-container rounded-lg p-6">
               <p className="text-sm text-on-surface-variant mb-1">Despesas</p>
               <p className="text-2xl font-bold text-tertiary">
-                {formatCurrencyWithSymbol(reportData.expenses)}
+                {formatCurrencyWithSymbol(reportData.expenses ?? 0)}
               </p>
             </div>
             <div className="bg-surface-container rounded-lg p-6">
               <p className="text-sm text-on-surface-variant mb-1">Balanço</p>
-              <p className={`text-2xl font-bold ${reportData.balance >= 0 ? "text-primary" : "text-error"}`}>
-                {formatCurrencyWithSymbol(reportData.balance)}
+              <p className={`text-2xl font-bold ${(reportData.balance ?? 0) >= 0 ? "text-primary" : "text-error"}`}>
+                {formatCurrencyWithSymbol(reportData.balance ?? 0)}
               </p>
             </div>
           </div>
