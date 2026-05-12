@@ -113,7 +113,18 @@ export async function GET(request: NextRequest) {
           .select("*")
           .eq("user_id", user.id)
           .eq("target_month", monthParam);
-        return NextResponse.json({ forecasts: forecasts.data || [], cached: true });
+        return NextResponse.json({
+          forecasts: (forecasts.data || []).map((f: Record<string, unknown>) => ({
+            category: f.category,
+            predictedAmount: f.predicted_amount,
+            confidenceLow: f.confidence_low,
+            confidenceHigh: f.confidence_high,
+            reasoning: f.reasoning,
+            trend: f.trend,
+            changePercent: f.change_percent,
+          })),
+          cached: true,
+        });
       }
     }
 
