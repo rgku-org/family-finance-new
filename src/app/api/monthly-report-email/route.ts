@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
+if (!process.env.CRON_SECRET) {
+  console.error('CRITICAL: CRON_SECRET not configured — cron endpoints blocked');
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 export async function POST(req: Request) {
   const authHeader = req.headers.get('Authorization');
   const cronSecret = process.env.CRON_SECRET;
@@ -111,7 +119,7 @@ export async function POST(req: Request) {
     <div style="background:white;border-radius:24px;padding:32px">
       <p style="color:#6b7280;font-size:16px;margin:0 0 8px">Resumo de</p>
       <h2 style="color:#1f2937;font-size:24px;margin:0 0 24px;font-weight:700">${periodName} ${year}</h2>
-      <p style="color:#1f2937;font-size:16px;margin:0 0 4px">Olá ${user.full_name || 'Utilizador'}!</p>
+      <p style="color:#1f2937;font-size:16px;margin:0 0 4px">Olá ${escapeHtml(user.full_name || 'Utilizador')}!</p>
       <p style="color:#6b7280;font-size:14px;margin:0 0 24px">Aqui está o teu resumo financeiro! 💪</p>
       
       <div style="background:linear-gradient(135deg,#10b981,#059669);border-radius:20px;padding:24px;text-align:center;margin:0 0 24px">
@@ -137,7 +145,7 @@ export async function POST(req: Request) {
         <tbody>
           ${topCategories.map(([cat, amount]) => `
           <tr>
-            <td style="padding:8px 16px;border-bottom:1px solid #e5e7eb">${cat}</td>
+            <td style="padding:8px 16px;border-bottom:1px solid #e5e7eb">${escapeHtml(cat)}</td>
             <td style="padding:8px 16px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600">${amount.toFixed(0)}€</td>
           </tr>
           `).join('')}
