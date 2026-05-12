@@ -28,7 +28,7 @@ export default function ImportPage() {
       .eq("id", user.id)
       .single()
       .then(({ data }) => setUserFamilyId(data?.family_id || null));
-  }, [user, supabase]);
+  }, [user]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = e.target.files?.[0];

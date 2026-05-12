@@ -132,12 +132,16 @@ export async function POST(request: NextRequest) {
       }
 
       // Also add to family_members table if not already there
-      const { data: existingMember } = await adminSupabase
+      const { data: existingMember, error: memberCheckError } = await adminSupabase
         .from("family_members")
         .select("id")
         .eq("family_id", targetFamily.id)
         .eq("user_id", user.id)
         .single();
+
+      if (memberCheckError && memberCheckError.code !== 'PGRST116') {
+        console.error("Error checking existing member:", memberCheckError);
+      }
 
       if (!existingMember) {
         await adminSupabase
@@ -267,6 +271,9 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (error) {
+      if (error.code === 'PGRST116') {
+        return NextResponse.json({ error: "Perfil não encontrado" }, { status: 404 });
+      }
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 

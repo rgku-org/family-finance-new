@@ -80,14 +80,16 @@ export function useOfflineSync() {
               response = await supabase
                 .from(item.table)
                 .update(item.data)
-                .eq('id', item.id_to_update);
+                .eq('id', item.id_to_update)
+                .eq('user_id', user.id);
               break;
 
             case 'delete':
               response = await supabase
                 .from(item.table)
                 .delete()
-                .eq('id', item.id_to_update);
+                .eq('id', item.id_to_update)
+                .eq('user_id', user.id);
               break;
           }
 

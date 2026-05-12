@@ -253,11 +253,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
         : newId;
 
       if (insertedId) {
-        const { data: insertedData } = await supabase
+        const { data: insertedData, error: fetchError } = await supabase
           .from('transactions_decrypted')
           .select('*')
           .eq('id', insertedId)
           .single();
+
+        if (fetchError) {
+          console.error('[addTransaction] Error fetching inserted tx:', fetchError);
+        }
 
         if (insertedData) {
           setTransactions(prev => {
@@ -377,27 +381,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     const existingAlert = existingAlerts?.[0] || null;
 
-    if (!existingAlert) {
-      sendInAppNotification(
-        threshold.title,
-        `Atingiste ${Math.round(percentage)}% do orçamento de ${category} (${totalSpent.toFixed(0)}€/${budgetLimit.toFixed(0)}€)`,
-        '/dashboard/budgets',
-        threshold.type
-      );
-      sendPushNotification(
-        threshold.title,
-        `Atingiste ${Math.round(percentage)}% do orçamento de ${category}`,
-        threshold.type
-      );
-      await supabase.from('budget_alerts').upsert({
-        user_id: user!.id,
-        category,
-        threshold_percent: threshold.value,
-        enabled: true,
-        last_sent: new Date().toISOString(),
-      });
-      return;
-    }
+      if (!existingAlert) {
+        sendInAppNotification(
+          threshold.title,
+          `Atingiste ${Math.round(percentage)}% do orçamento de ${category} (${totalSpent.toFixed(0)}€/${budgetLimit.toFixed(0)}€)`,
+          '/dashboard/budgets',
+          threshold.type
+        );
+        sendPushNotification(
+          threshold.title,
+          `Atingiste ${Math.round(percentage)}% do orçamento de ${category}`,
+          threshold.type
+        );
+        const { error: upsertError } = await supabase.from('budget_alerts').upsert({
+          user_id: user!.id,
+          category,
+          threshold_percent: threshold.value,
+          enabled: true,
+          last_sent: new Date().toISOString(),
+        });
+        if (upsertError) {
+          console.error('[BudgetAlerts] Error upserting alert:', upsertError);
+        }
+        return;
+      }
 
     const reNotifyThreshold = threshold.value + 5;
     if (percentage >= reNotifyThreshold) {
@@ -412,13 +419,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
         `Agora em ${Math.round(percentage)}% do orçamento de ${category}`,
         threshold.type
       );
-      await supabase.from('budget_alerts').upsert({
+      const { error: upsertError } = await supabase.from('budget_alerts').upsert({
         user_id: user!.id,
         category,
         threshold_percent: threshold.value,
         enabled: true,
         last_sent: new Date().toISOString(),
       });
+      if (upsertError) {
+        console.error('[BudgetAlerts] Error upserting re-notify alert:', upsertError);
+      }
     }
   };
 
@@ -588,11 +598,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
       
-      const { data: goalData } = await supabase
+      const { data: goalData, error: goalFetchError } = await supabase
         .from('goals_decrypted')
         .select('*')
         .eq('id', newId)
         .single();
+
+      if (goalFetchError) {
+        console.error('[addGoal] Error fetching inserted goal:', goalFetchError);
+      }
 
       if (goalData) {
         setGoals(prev => prev.map(goal => 
