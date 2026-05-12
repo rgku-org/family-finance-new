@@ -71,6 +71,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const lastFetchFamilyId = useRef<string | null>(null);
   const transactionsRef = useRef(transactions);
   transactionsRef.current = transactions;
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const fetchData = async () => {
     if (!user) return;
@@ -126,7 +132,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
         console.error('[DataProvider] Error fetching transactions:', transactionsData.error);
       }
       
-        setTransactions(transactionsData.data
+      if (!mountedRef.current) return;
+      
+      setTransactions(transactionsData.data
           ? transactionsData.data.map(t => {
               const parsedAmount = parseFloat(t.amount) || 0;
               if (parsedAmount === 0 && t.amount !== '0') {
@@ -182,6 +190,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     fetchData();
+  }, [user]);
+
+  const prevOnlineRef = useRef(isOnline);
+  useEffect(() => {
+    if (user && !prevOnlineRef.current && isOnline) {
+      fetchData();
+    }
+    prevOnlineRef.current = isOnline;
   }, [user, isOnline]);
 
   const lastKnownPending = useRef(0);
