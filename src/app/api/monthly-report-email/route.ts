@@ -38,10 +38,19 @@ export async function POST(req: Request) {
     }
 
     // Get emails from auth.users (accessible via service_role key)
-    const { data: authData } = await supabase.auth.admin.listUsers({ page: 1, perPage: 10000 });
+    // Paginate to handle >200 users (GoTrue max perPage=200)
     const emailMap = new Map<string, string>();
-    for (const u of authData?.users || []) {
-      emailMap.set(u.id, u.email || '');
+    let page = 1;
+    const perPage = 200;
+    while (true) {
+      const { data: authData } = await supabase.auth.admin.listUsers({ page, perPage });
+      const users = authData?.users || [];
+      if (users.length === 0) break;
+      for (const u of users) {
+        emailMap.set(u.id, u.email || '');
+      }
+      if (users.length < perPage) break;
+      page++;
     }
 
     // Merge profile data with email
