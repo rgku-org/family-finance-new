@@ -42,7 +42,16 @@ export async function POST(request: NextRequest) {
       if (cached.data && cached.data.suggested_at) {
         const cacheAge = Date.now() - new Date(cached.data.suggested_at).getTime();
         if (cacheAge < CACHE_TTL_DAYS * 24 * 60 * 60 * 1000) {
-          const suggestions = (cached.data.suggestions || []).filter((s: AIBudgetSuggestion) => s.category && s.category.trim());
+          const rawSuggestions: any[] = cached.data.suggestions || [];
+          const suggestions = rawSuggestions
+            .map((s: any) => ({
+              category: (s.category || s.categoria || s.name || "") as string,
+              currentLimit: s.currentLimit ?? s.current_limit ?? 0,
+              suggestedLimit: s.suggestedLimit ?? s.suggested_limit ?? 0,
+              reason: (s.reason || "") as string,
+              impactOnGoals: (s.impactOnGoals || s.impact_on_goals || "") as string,
+            }))
+            .filter(s => s.category.trim());
           return NextResponse.json({ suggestions, summary: cached.data.summary, cached: true, generated_at: cached.data.suggested_at });
         }
       }
@@ -130,7 +139,16 @@ export async function POST(request: NextRequest) {
       result = generateFallbackOptimize(currentBudgets, goals);
     }
 
-    const validSuggestions = result.suggestions.filter(s => s.category && s.category.trim());
+    const rawSuggestions: any[] = result.suggestions || [];
+    const validSuggestions: AIBudgetSuggestion[] = rawSuggestions
+      .map((s: any) => ({
+        category: (s.category || s.categoria || s.name || "") as string,
+        currentLimit: (s.currentLimit ?? s.current_limit ?? 0) as number,
+        suggestedLimit: (s.suggestedLimit ?? s.suggested_limit ?? 0) as number,
+        reason: (s.reason || "") as string,
+        impactOnGoals: (s.impactOnGoals || s.impact_on_goals || "") as string,
+      }))
+      .filter(s => s.category.trim());
     result.suggestions = validSuggestions;
 
     await admin.from("budget_suggestions").insert({
