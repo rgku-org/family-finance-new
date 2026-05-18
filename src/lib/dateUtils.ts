@@ -42,10 +42,11 @@ export function isDateInCustomMonth(dateStr: string, billingDay: number, year: n
   const cycleStart = new Date(year, month - 2, billingDay); // Previous month, billing day
   const cycleEnd = new Date(year, month - 1, billingDay - 1); // Current month, day before billing day
   
-  // Parse date string as local time to avoid UTC offset mismatch
-  // new Date('2026-05-18') is UTC midnight, which in UTC+1 becomes May 18 01:00 local,
-  // causing exclusion from cycle ending at May 18 00:00 local
-  const [y, m, d] = dateStr.split('-').map(Number);
+  // Parse date-only part as local time to avoid UTC offset mismatch
+  // new Date('2026-05-18') is UTC midnight → UTC+1 becomes May 18 01:00 local
+  // ISO strings (created_at) include time: '2026-05-18T11:04:47Z'
+  const dateOnly = dateStr.split('T')[0];
+  const [y, m, d] = dateOnly.split('-').map(Number);
   const date = new Date(y, m - 1, d);
   return date >= cycleStart && date <= cycleEnd;
 }
